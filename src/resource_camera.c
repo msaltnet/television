@@ -17,9 +17,6 @@
 #include <stdlib.h>
 #include <Ecore.h>
 #include <camera.h>
-#ifdef DEBUG_THREAD
-#include <pthread.h>
-#endif
 
 #include "log.h"
 #include "controller.h"
@@ -95,15 +92,6 @@ static const char * __cam_err_to_str(camera_error_e err)
 	}
 	return err_str;
 }
-
-#ifdef DEBUG_THREAD
-static void __print_thread_id(char *msg)
-{
-	pthread_t id;
-	id = pthread_self();
-	_D("[%s] tid %u", msg,  (unsigned int)id);
-}
-#endif
 
 static void __print_camera_state(camera_state_e previous, camera_state_e current, bool by_policy, void *user_data)
 {
@@ -262,8 +250,6 @@ static void __completed_cb(void *user_data)
 	int ret = 0;
 	struct __camera_data *camera_data = user_data;
 
-	_D("Capture is completed");
-
 	if (camera_data->capture_completed_cb)
 		camera_data->capture_completed_cb(camera_data->captured_file, camera_data->image_size, camera_data->capture_completed_cb_data);
 
@@ -305,12 +291,6 @@ static void __camera_preview_cb(camera_preview_data_s *frame, void *user_data)
 
 	if (now - last < CAMERA_PREVIEW_INTERVAL_MIN)
 		return;
-
-	// _D("###Time Ellapse [%lld], [%lld], [%lld]", last, now, now - last);
-
-#ifdef DEBUG_THREAD
-	__print_thread_id("PREVIEW");
-#endif
 
 	image_buffer_data_s *image_buffer_data = __make_preview_image_buffer_data(frame);
 	if (image_buffer_data == NULL) {

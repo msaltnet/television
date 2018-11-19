@@ -35,7 +35,7 @@
 #include "st_thing_resource.h"
 
 #define CAMERA_MOVE_INTERVAL_MS 450
-#define THRESHOLD_EVENT_COUNT 2
+#define THRESHOLD_VALID_EVENT_COUNT 2
 #define VALID_EVENT_INTERVAL_MS 200
 
 #define IMAGE_FILE_PREFIX "CAM_"
@@ -44,28 +44,24 @@
 #define TEMP_IMAGE_FILENAME "/tmp/tmp.jpg"
 #define LATEST_IMAGE_FILENAME "/tmp/latest.jpg"
 
-// #define TEST_SERVO_MOTER_CAL 1
-// #define TEST_DEBUG_MODE 1
 // #define ENABLE_SMARTTHINGS
 #define APP_CALLBACK_KEY "controller"
 
 typedef struct app_data_s {
-	long long int last_moved_time;
-	long long int last_valid_event_time;
 	double current_servo_x;
 	double current_servo_y;
 	int motion_state;
 
-	int vision_result_x_sum;
-	int vision_result_y_sum;
-
+	long long int last_moved_time;
+	long long int last_valid_event_time;
+	int valid_vision_result_x_sum;
+	int valid_vision_result_y_sum;
 	int valid_event_count;
 
 	unsigned int latest_image_width;
 	unsigned int latest_image_height;
 	char *latest_image_info;
-	int latest_image_type; // 0: 카메라 이동 시간의 이미지, 1: 유효 이벤트 숫자 아래의 이미지, 2: 유효한 동작 이미지
-
+	int latest_image_type; // 0: image during camera repositioning, 1: single valid image but not completed, 2: fully validated image
 	unsigned char *latest_image_buffer;
 
 	Ecore_Thread *image_writter_thread;
@@ -156,41 +152,6 @@ static void __thread_write_image_file(void *data, Ecore_Thread *th)
 	}
 	pthread_mutex_unlock(&ad->mutex);
 
-#ifdef TEST_DEBUG_MODE
-	char filename[PATH_MAX] = {'\0', };
-	static long long int captured_time = 0;
-	long long int now = __get_monotonic_ms();
-	int servo_x = 0;
-	int servo_y = 0;
-	int latest_image_type = 0;
-
-	char *data_path = NULL;
-	data_path = app_get_data_path();
-
-	pthread_mutex_lock(&ad->mutex);
-	servo_x = (int)ad->current_servo_x;
-	servo_y = (int)ad->current_servo_y;
-	latest_image_type = ad->latest_image_type;
-	pthread_mutex_unlock(&ad->mutex);
-
-	snprintf(filename, PATH_MAX, "%s%s%lld_H_%d_V_%d_%lld_%d.jpg",
-		data_path,
-		IMAGE_FILE_PREFIX,
-		__get_monotonic_ms(),
-		servo_x,
-		servo_y,
-		__get_monotonic_ms() - captured_time,
-		latest_image_type);
-
-	free(data_path);
-	data_path = NULL;
-
-	ret = controller_image_save_image_file(filename, width, height, buffer, image_info, strlen(image_info));
-	if (ret)
-		_E("failed to save image file");
-
-	captured_time = __get_monotonic_ms();
-#else
 	ret = controller_image_save_image_file(TEMP_IMAGE_FILENAME, width, height, buffer, image_info, strlen(image_info));
 	if (ret) {
 		_E("failed to save image file");
@@ -199,7 +160,6 @@ static void __thread_write_image_file(void *data, Ecore_Thread *th)
 		if (ret != 0 )
 			_E("Rename fail");
 	}
-#endif
 	free(image_info);
 	free(buffer);
 }
@@ -208,7 +168,6 @@ static void __thread_end_cb(void *data, Ecore_Thread *th)
 {
 	app_data *ad = (app_data *)data;
 
-	// _D("Normal termination for thread %p.\n", th);
 	pthread_mutex_lock(&ad->mutex);
 	ad->image_writter_thread = NULL;
 	pthread_mutex_unlock(&ad->mutex);
@@ -256,15 +215,6 @@ static void __preview_image_buffer_created_cb(void *data)
 	ret_if(!image_buffer);
 	ret_if(!ad);
 
-#ifdef TEST_DEBUG_MODE
-	static long long int last_time = 0;
-	static int seq = 0;
-	long long int now = __get_monotonic_ms();
-	seq++;
-	_D("BUFFER seq[%d] interval[%lld]", seq, now - last_time);
-	last_time = now;
-#endif
-
 	image_colorspace = __convert_colorspace_from_cam_to_mv(image_buffer->format);
 	goto_if(image_colorspace == MEDIA_VISION_COLORSPACE_INVALID, FREE_ALL_BUFFER);
 
@@ -286,9 +236,6 @@ static void __preview_image_buffer_created_cb(void *data)
 	if (source)
 		controller_mv_push_source(source);
 
-#ifdef TEST_DEBUG_MODE
-	_D("Vision need %lldms", __get_monotonic_ms() - now);
-#endif
 	free(image_buffer);
 
 	motion_state_set(ad->motion_state, APP_CALLBACK_KEY);
@@ -309,18 +256,18 @@ FREE_ALL_BUFFER:
 	free(image_buffer);
 }
 
-// x, y -10 ~ 10 offset
 static void __move_camera(int x, int y, void *user_data)
 {
 	app_data *ad = (app_data *)user_data;
 	ret_if(!ad);
 
+	// x, y Range : -10 ~ 10
 	if (x > 10) x = 10;
 	if (x < -10) x = -10;
 	if (y > 10) y = 10;
 	if (y < -10) y = -10;
 
-	x *= -1; // 카메라는 좌우 반전!!
+	x *= -1; // The camera image is flipped left and right.
 	double calculated_x = ad->current_servo_x + x * SERVO_MOTOR_HORIZONTAL_STEP;
 	double calculated_y = ad->current_servo_y + y * SERVO_MOTOR_VERTICAL_STEP;
 
@@ -365,10 +312,7 @@ static void __set_result_info(int result[], int result_count, app_data *ad, int 
 
 	for (i = 0; i < result_count; i++) {
 		current_index = i * 4;
-#ifdef TEST_DEBUG_MODE
-		_D("RESULT: [%02d] [%02d] [%02d] [%02d]", result[i], result[i + 1], result[i + 2], result[i + 3]);
-#endif
-		if (IMAGE_INFO_MAX - string_count < 0)
+		if (IMAGE_INFO_MAX - string_count < 8)
 			break;
 
 		current_position += snprintf(current_position, IMAGE_INFO_MAX - string_count, "%02d%02d%02d%02d"
@@ -376,9 +320,6 @@ static void __set_result_info(int result[], int result_count, app_data *ad, int 
 		string_count += 8;
 	}
 
-#ifdef TEST_DEBUG_MODE
-	_D("RESULT: Count [%02d] String [%s]", result_count, image_info);
-#endif
 	latest_image_info = strdup(image_info);
 	pthread_mutex_lock(&ad->mutex);
 	info = ad->latest_image_info;
@@ -395,10 +336,9 @@ static void __mv_detection_event_cb(int horizontal, int vertical, int result[], 
 	ad->motion_state = 1;
 
 	if (now < ad->last_moved_time + CAMERA_MOVE_INTERVAL_MS) {
-		// _D("@@@ CAMERA MOVE TIME @@@");
 		ad->valid_event_count = 0;
 		pthread_mutex_lock(&ad->mutex);
-		ad->latest_image_type = 0;
+		ad->latest_image_type = 0; // 0: image during camera repositioning
 		pthread_mutex_unlock(&ad->mutex);
 		__set_result_info(result, result_count, ad, 0);
 		return;
@@ -412,62 +352,37 @@ static void __mv_detection_event_cb(int horizontal, int vertical, int result[], 
 
 	ad->last_valid_event_time = now;
 
-	if (ad->valid_event_count < THRESHOLD_EVENT_COUNT) {
-		ad->vision_result_x_sum += horizontal;
-		ad->vision_result_y_sum += vertical;
+	if (ad->valid_event_count < THRESHOLD_VALID_EVENT_COUNT) {
+		ad->valid_vision_result_x_sum += horizontal;
+		ad->valid_vision_result_y_sum += vertical;
 		pthread_mutex_lock(&ad->mutex);
-		ad->latest_image_type = 1;
+		ad->latest_image_type = 1; // 1: single valid image but not completed
 		pthread_mutex_unlock(&ad->mutex);
 		__set_result_info(result, result_count, ad, 1);
 		return;
 	}
 
 	ad->valid_event_count = 0;
-	ad->vision_result_x_sum += horizontal;
-	ad->vision_result_y_sum += vertical;
+	ad->valid_vision_result_x_sum += horizontal;
+	ad->valid_vision_result_y_sum += vertical;
 
-	int x = ad->vision_result_x_sum / THRESHOLD_EVENT_COUNT;
-	int y = ad->vision_result_y_sum / THRESHOLD_EVENT_COUNT;
+	int x = ad->valid_vision_result_x_sum / THRESHOLD_VALID_EVENT_COUNT;
+	int y = ad->valid_vision_result_y_sum / THRESHOLD_VALID_EVENT_COUNT;
 
 	x = 10 * x / (IMAGE_WIDTH / 2);
 	y = 10 * y / (IMAGE_HEIGHT / 2);
 
-#ifndef TEST_SERVO_MOTER_CAL
 	__move_camera((int) x, (int) y, ad);
-#endif
 	ad->last_moved_time = now;
 
-	ad->vision_result_x_sum = 0;
-	ad->vision_result_y_sum = 0;
+	ad->valid_vision_result_x_sum = 0;
+	ad->valid_vision_result_y_sum = 0;
 	pthread_mutex_lock(&ad->mutex);
-	ad->latest_image_type = 2;
+	ad->latest_image_type = 2; // 2: fully validated image
 	pthread_mutex_unlock(&ad->mutex);
 
 	__set_result_info(result, result_count, ad, 2);
 }
-
-#ifdef TEST_SERVO_MOTER_CAL
-static Eina_Bool _control_interval_event_cb(void *data)
-{
-	static int h = SERVO_MOTOR_HORIZONTAL_MIN;
-	static int v = SERVO_MOTOR_VERTICAL_MIN;
-
-	v += SERVO_MOTOR_VERTICAL_STEP;
-	if (v > SERVO_MOTOR_VERTICAL_MAX)
-		v = SERVO_MOTOR_VERTICAL_MIN;
-
-	h += SERVO_MOTOR_HORIZONTAL_STEP;
-	if (h > SERVO_MOTOR_HORIZONTAL_MAX)
-		h = SERVO_MOTOR_HORIZONTAL_MIN;
-
-	// servo_h_state_set(h, APP_CALLBACK_KEY);
-	// servo_v_state_set(v, APP_CALLBACK_KEY);
-
-	_D("SERVO V ONLY v[%d] h[%d]", v, h);
-
-	return ECORE_CALLBACK_RENEW;
-}
-#endif
 
 static void __switch_changed(switch_state_e state, void* user_data)
 {
@@ -522,12 +437,12 @@ static int __device_interfaces_init(app_data *ad)
 	}
 
 	if (servo_v_initialize()) {
-		_E("failed to switch_initialize()");
+		_E("failed to servo_v_initialize()");
 		goto ERROR;
 	}
 
 	if (servo_h_initialize()) {
-		_E("failed to switch_initialize()");
+		_E("failed to servo_h_initialize()");
 		goto ERROR;
 	}
 
@@ -568,10 +483,6 @@ static bool service_app_create(void *data)
 		_E("Failed to init camera");
 		goto ERROR;
 	}
-
-#ifdef TEST_SERVO_MOTER_CAL
-	ecore_timer_add(EVENT_INTERVAL_SECOND, _control_interval_event_cb, NULL);
-#endif
 
 	if (resource_camera_start_preview() == -1) {
 		_E("Failed to start camera preview");
