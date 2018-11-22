@@ -17,6 +17,9 @@
 var fs = require('fs');
 var http = require('http');
 
+var SERVER_ROOT_FOLDER_PATH = '/opt/usr/globalapps/org.tizen.smart-surveillance-camera.dashboard/res/';
+var LATEST_FRAME_FILE_PATH = '/opt/usr/home/owner/apps_rw/org.tizen.smart-surveillance-camera/shared/data/latest.jpg'
+
 function extractPath(url) {
   var urlParts = url.split('/'),
     i = 0,
@@ -37,16 +40,16 @@ http.createServer(function(req, res) {
     // var last = path[path.length - 1];
     if (path[0] === undefined) {
       res.writeHead(200);
-      res.end(fs.readFileSync('public/index.html'));
+      res.end(fs.readFileSync(SERVER_ROOT_FOLDER_PATH + 'public/index.html'));
     } else if (path[0] == 'test') {
       res.writeHead(200);
-      res.end(fs.readFileSync('public/test.html'));
+      res.end(fs.readFileSync(SERVER_ROOT_FOLDER_PATH + 'public/test.html'));
     } else if (req.url == '/js/app.js') {
       res.writeHead(200);
-      res.end(fs.readFileSync('public/js/app.js'));
+      res.end(fs.readFileSync(SERVER_ROOT_FOLDER_PATH + 'public/js/app.js'));
     } else if (req.url == '/css/style.css') {
       res.writeHead(200);
-      res.end(fs.readFileSync('public/css/style.css'));
+      res.end(fs.readFileSync(SERVER_ROOT_FOLDER_PATH + 'public/css/style.css'));
     } else {
       res.setHeader('Location', 'http://download.tizen.online/smart-surveillance' + req.url);
       res.writeHead(302);
@@ -95,9 +98,10 @@ if (ENABLE_WEBSOCKET) {
       var now = Date.now();
       var data;
       try {
-        data = fs.readFileSync('/tmp/latest.jpg');
+       data = fs.readFileSync(LATEST_FRAME_FILE_PATH);
       } catch (err) {
-        data = fs.readFileSync('/opt/home/dashboard/default.gif');
+    	console.log(err);
+        data = fs.readFileSync(SERVER_ROOT_FOLDER_PATH + 'default.gif');
       }
       ws.send(data, {mask: false, binary: true});
       console.log(`Sending frame(${i++}), interval(${now - prev} ms)`);
@@ -111,7 +115,7 @@ if (ENABLE_WEBSOCKET) {
       console.log('Client close: ' + msg.reason + ' (' + msg.code + ')');
       clearInterval(timeout);
     });
-  };
+  }
 
   server.on('error', function (msg) {
     console.log('Error: %s', msg.toString());
