@@ -133,11 +133,10 @@ static const char *__master_error_to_str(smartthings_error_e error)
 }
 
 static void
-_things_connection_status_cb(smartthings_error_e error,
-	smartthings_h handle, smartthings_connection_status_e status,
+_things_connection_status_cb(smartthings_h handle, smartthings_connection_status_e status,
 	void *user_data)
 {
-	_D("result [%s], status = [%d]", __master_error_to_str(error), status);
+	_D("status = [%d]", status);
 
 	if (status == SMARTTHINGS_CONNECTION_STATUS_CONNECTED) {
 		int err = 0;

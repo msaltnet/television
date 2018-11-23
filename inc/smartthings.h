@@ -1,5 +1,6 @@
- /*
- * Copyright (c) 2018 Samsung Electronics Co., Ltd.
+/*****************************************************************
+ *
+ * Copyright (c) 2018 Samsung Electronics Co., Ltd. All Rights Reserved
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -8,11 +9,13 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an AS IS BASIS,
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
+ *
+ ******************************************************************/
+
 
 #ifndef __SAMSUNG_EXPERIENCE_SERVICE_SMARTTHINGS_H__
 #define __SAMSUNG_EXPERIENCE_SERVICE_SMARTTHINGS_H__
@@ -163,16 +166,11 @@ typedef struct smartthings_ap_list_s *smartthings_ap_list_h;
 
 /**
  * @brief Callback for status of connection to SmartThings Thing agent.
- * @details The following error codes can be received: \n
-	#SMARTTHINGS_ERROR_NONE:                               Success \n
-	#SMARTTHINGS_ERROR_PERMISSION_DENIED:      Permission denied \n
-	#SMARTTHINGS_ERROR_SERVICE_UNAVAILABLE:   Service unavailable \n
  * @since_ses 1
  *
  * @remarks The @a handle should not be released.
  * @remarks The @a handle is the same object for which the callback was set/added.
  * @remarks The @a handle will be released when smartthings_deinitialize() is called.
- * @remarks When callback is called, user can see result as #smartthings_error_e enumeration value.
  * @remarks When callback is called, user can see connection status as #smartthings_connection_status_e enumeration value.
  *
  * @param[in] result The result of connection operation
@@ -182,7 +180,7 @@ typedef struct smartthings_ap_list_s *smartthings_ap_list_h;
  *
  * @see smartthings_initialize()
  */
-typedef void (*smartthings_connection_status_cb)(smartthings_error_e result, smartthings_h handle, smartthings_connection_status_e status, void *user_data);
+typedef void (*smartthings_connection_status_cb)(smartthings_h handle, smartthings_connection_status_e status, void *user_data);
 
 /**
  * @brief Callback for SmartThings Thing status.

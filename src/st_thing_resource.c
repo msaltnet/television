@@ -289,11 +289,10 @@ _request_cb(smartthings_resource_h handle, int req_id,
 }
 
 static void
-_resource_connection_status_cb(smartthings_resource_error_e error,
-	smartthings_resource_h handle,
+_resource_connection_status_cb(smartthings_resource_h handle,
 	smartthings_resource_connection_status_e status, void *user_data)
 {
-	_D("result [%s], status=[%d]", __resource_error_to_str(error), status);
+	_D("status=[%d]", status);
 
 	g_conn_status = status;
 
