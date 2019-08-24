@@ -18,7 +18,7 @@
 #define __CONTROLLER_MV_H__
 #include <mv_common.h>
 
-typedef void (*movement_detected_cb)(int horizontal, int vertical, int result[], int result_count, void *user_data);
+typedef void (*movement_detected_cb)(int area_sum, int result[], int result_count, void *user_data);
 
 mv_source_h controller_mv_create_source(
 		unsigned char *buffer, unsigned int size,

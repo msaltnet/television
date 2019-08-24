@@ -87,8 +87,6 @@ static const char *__mv_err_to_str(mv_error_e err)
 static void __movement_detected_event_cb(mv_surveillance_event_trigger_h trigger, mv_source_h source, int video_stream_id, mv_surveillance_result_h event_result, void *data)
 {
 	int ret = 0;
-	int horizontal = 0;
-	int vertical = 0;
 	int result[MV_RESULT_LENGTH_MAX] = {0, };
 	int result_count = 0;
 	int result_index = 0;
@@ -125,24 +123,9 @@ static void __movement_detected_event_cb(mv_surveillance_event_trigger_h trigger
 
 		valid_area_sum += regions[i].width * regions[i].height;
 	}
-
-	for (i = 0; i < move_regions_num; i++) {
-		if (regions[i].width * regions[i].height < THRESHOLD_SIZE_REGION)
-			continue;
-
-		//offset 은 움직임의 중심 좌표가 화면의 중심으로 부터 얼마나 벗어났는지의 값으로 -160 ~ 160, -120 ~ 120 의 값을 갖는다.
-		int x_offset = (regions[i].point.x + regions[i].width / 2) - (IMAGE_WIDTH / 2);
-		int y_offset = (regions[i].point.y + regions[i].height / 2) - (IMAGE_HEIGHT / 2);
-		int area = regions[i].width * regions[i].height;
-
-		// offset 값에 움직임 크기의 상대값(비율)을 곱한 다음, 모두 더해서 최종 offset 값을 구한다.
-		// 최종값의 범위는 offset 값의 범위와 같아야 한다.
-		horizontal += (int) x_offset * area / valid_area_sum;
-		vertical += (int) y_offset * area / valid_area_sum;
-	}
 	free(regions);
 
-	mv_data->movement_detected_cb(horizontal, vertical, result, result_count, mv_data->movement_detected_cb_data);
+	mv_data->movement_detected_cb(valid_area_sum, result, result_count, mv_data->movement_detected_cb_data);
 }
 
 void controller_mv_push_source(mv_source_h source)

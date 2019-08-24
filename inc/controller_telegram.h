@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#ifndef __ST_THING_RESOURCE__
-#define __ST_THING_RESOURCE__
+#ifndef __CONTROLLER_TELEGRAM_H__
+#define __CONTROLLER_TELEGRAM_H__
 
-int st_thing_resource_init(void);
-int st_thing_resource_fini(void);
-
-#endif /* __ST_THING_RESOURCE__ */
+int controller_telegram_send_message(const char* msg);
+int controller_telegram_send_image(const unsigned char* image_buffer, unsigned int buffer_size);
+#endif

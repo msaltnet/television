@@ -21,7 +21,7 @@ void controller_image_initialize(void);
 void controller_image_finalize(void);
 int controller_image_save_image_file(const char *path,
 	unsigned int width, unsigned int height, const unsigned char *buffer,
-	const char *comment, unsigned int comment_len);
+	unsigned char** encoded, unsigned long long* encoded_size, const char *comment, unsigned int comment_len);
 int controller_image_read_image_file(const char *path,
 	unsigned int *width, unsigned int *height, unsigned char *buffer, unsigned long long *size);
 #endif

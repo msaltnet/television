@@ -24,51 +24,40 @@
 #include "controller.h"
 #include "controller_mv.h"
 #include "controller_image.h"
+#include "controller_telegram.h"
 #include "log.h"
 #include "resource_camera.h"
-#include "switch.h"
-#include "servo-h.h"
-#include "servo-v.h"
-#include "servo-type.h"
-#include "motion.h"
-#include "st_thing_master.h"
-#include "st_thing_resource.h"
 
-#define CAMERA_MOVE_INTERVAL_MS 450
-#define THRESHOLD_VALID_EVENT_COUNT 2
+#define THRESHOLD_VALID_EVENT_COUNT 5
 #define VALID_EVENT_INTERVAL_MS 200
+#define TELEGRAM_EVENT_INTERVAL_MS 5000
 
 #define IMAGE_FILE_PREFIX "CAM_"
-#define EVENT_INTERVAL_SECOND 0.5f
 
 //#define TEMP_IMAGE_FILENAME "/opt/usr/home/owner/apps_rw/org.tizen.smart-surveillance-camera/shared/data/tmp.jpg"
 //#define LATEST_IMAGE_FILENAME "/opt/usr/home/owner/apps_rw/org.tizen.smart-surveillance-camera/shared/data/latest.jpg"
 
-// #define ENABLE_SMARTTHINGS
-#define APP_CALLBACK_KEY "controller"
-
 typedef struct app_data_s {
-	double current_servo_x;
-	double current_servo_y;
-	int motion_state;
-
-	long long int last_moved_time;
 	long long int last_valid_event_time;
-	int valid_vision_result_x_sum;
-	int valid_vision_result_y_sum;
 	int valid_event_count;
 
 	unsigned int latest_image_width;
 	unsigned int latest_image_height;
 	char *latest_image_info;
-	int latest_image_type; // 0: image during camera repositioning, 1: single valid image but not completed, 2: fully validated image
 	unsigned char *latest_image_buffer;
+	unsigned char *latest_encoded_image_buffer;
+	unsigned int latest_encoded_image_buffer_size;
 
 	Ecore_Thread *image_writter_thread;
 	pthread_mutex_t mutex;
 
 	char* temp_image_filename;
 	char* latest_image_filename;
+
+	Ecore_Thread *telegram_thread;
+	char* telegram_message;
+	unsigned char* telegram_image_buffer;
+	unsigned long long telegram_image_buffer_size;
 } app_data;
 
 static long long int __get_monotonic_ms(void)
@@ -133,12 +122,72 @@ static mv_colorspace_e __convert_colorspace_from_cam_to_mv(camera_pixel_format_e
 	return colorspace;
 }
 
+static void __terminate_telegram_thread(void *data)
+{
+	app_data *ad = (app_data *)data;
+	ad->telegram_thread = NULL;
+	_D("Telegram Thread Terminated!");
+
+}
+static void __thread_telegram_task(void *data, Ecore_Thread *th)
+{
+	app_data *ad = (app_data *)data;
+	_D("Telegram Thread Start!");
+	controller_telegram_send_message(ad->telegram_message);
+	controller_telegram_send_image(ad->telegram_image_buffer, ad->telegram_image_buffer_size);
+}
+
+static void __thread_telegram_task_end_cb(void *data, Ecore_Thread *th)
+{
+	_D("Telegram Thread End!");
+	ecore_main_loop_thread_safe_call_async(__terminate_telegram_thread, (app_data *)data);
+}
+
+static void __send_telegram_message(const char* msg, app_data *ad)
+{
+	if (!msg)
+		return;
+
+	static long long int last_event_time = 0;;
+	long long int now = __get_monotonic_ms();
+
+	if (now < last_event_time + TELEGRAM_EVENT_INTERVAL_MS) {
+		return;
+	}
+
+	last_event_time = now;
+
+	if (ad->telegram_message)
+		free(ad->telegram_message);
+
+	ad->telegram_message = strdup(msg);
+
+	free(ad->telegram_image_buffer);
+
+	pthread_mutex_lock(&ad->mutex);
+	ad->telegram_image_buffer = ad->latest_encoded_image_buffer;
+	ad->latest_encoded_image_buffer = NULL;
+	ad->telegram_image_buffer_size = ad->latest_encoded_image_buffer_size;
+	pthread_mutex_unlock(&ad->mutex);
+
+	if (!ad->telegram_thread) {
+		ad->telegram_thread = ecore_thread_run(__thread_telegram_task,
+			__thread_telegram_task_end_cb,
+			__thread_telegram_task_end_cb,
+			ad);
+	} else {
+		_E("Telegram Thread is running NOW");
+	}
+}
+
 static void __thread_write_image_file(void *data, Ecore_Thread *th)
 {
 	app_data *ad = (app_data *)data;
 	unsigned int width = 0;
 	unsigned int height = 0;
-	unsigned char *buffer = 0;
+	unsigned char *buffer = NULL;
+	unsigned char *encoded_buffer = NULL;
+	unsigned long long encoded_size = 0;
 	char *image_info = NULL;
 	int ret = 0;
 
@@ -155,7 +204,8 @@ static void __thread_write_image_file(void *data, Ecore_Thread *th)
 	}
 	pthread_mutex_unlock(&ad->mutex);
 
-	ret = controller_image_save_image_file(ad->temp_image_filename, width, height, buffer, image_info, strlen(image_info));
+	ret = controller_image_save_image_file(ad->temp_image_filename, width, height, buffer,
+		&encoded_buffer, &encoded_size, image_info, strlen(image_info));
 	if (ret) {
 		_E("failed to save image file");
 	} else {
@@ -163,11 +213,18 @@ static void __thread_write_image_file(void *data, Ecore_Thread *th)
 		if (ret != 0 )
 			_E("Rename fail");
 	}
+
+	pthread_mutex_lock(&ad->mutex);
+	free(ad->latest_encoded_image_buffer);
+	ad->latest_encoded_image_buffer = encoded_buffer;
+	ad->latest_encoded_image_buffer_size = encoded_size;
+	pthread_mutex_unlock(&ad->mutex);
+
 	free(image_info);
 	free(buffer);
 }
 
-static void __thread_end_cb(void *data, Ecore_Thread *th)
+static void __thread_write_image_file_end_cb(void *data, Ecore_Thread *th)
 {
 	app_data *ad = (app_data *)data;
 
@@ -176,7 +233,7 @@ static void __thread_end_cb(void *data, Ecore_Thread *th)
 	pthread_mutex_unlock(&ad->mutex);
 }
 
-static void __thread_cancel_cb(void *data, Ecore_Thread *th)
+static void __thread_write_image_file_cancel_cb(void *data, Ecore_Thread *th)
 {
 	app_data *ad = (app_data *)data;
 	unsigned char *buffer = NULL;
@@ -212,7 +269,6 @@ static void __preview_image_buffer_created_cb(void *data)
 	app_data *ad = (app_data *)image_buffer->user_data;
 	mv_source_h source = NULL;
 	mv_colorspace_e image_colorspace = MEDIA_VISION_COLORSPACE_INVALID;
-	switch_state_e switch_state = SWITCH_STATE_OFF;
 	char *info = NULL;
 
 	ret_if(!image_buffer);
@@ -223,12 +279,11 @@ static void __preview_image_buffer_created_cb(void *data)
 
 	__copy_image_buffer(image_buffer, ad);
 
-	switch_state_get(&switch_state);
-	if (switch_state == SWITCH_STATE_OFF) { /* SWITCH_STATE_OFF means automatic mode */
-		source = controller_mv_create_source(image_buffer->buffer,
-					image_buffer->buffer_size, image_buffer->image_width,
-					image_buffer->image_height, image_colorspace);
-	}
+	source = controller_mv_create_source(image_buffer->buffer,
+		image_buffer->buffer_size,
+		image_buffer->image_width,
+		image_buffer->image_height,
+		image_colorspace);
 
 	pthread_mutex_lock(&ad->mutex);
 	info = ad->latest_image_info;
@@ -241,12 +296,12 @@ static void __preview_image_buffer_created_cb(void *data)
 
 	free(image_buffer);
 
-	motion_state_set(ad->motion_state, APP_CALLBACK_KEY);
-	ad->motion_state = 0;
-
 	pthread_mutex_lock(&ad->mutex);
 	if (!ad->image_writter_thread) {
-		ad->image_writter_thread = ecore_thread_run(__thread_write_image_file, __thread_end_cb, __thread_cancel_cb, ad);
+		ad->image_writter_thread = ecore_thread_run(__thread_write_image_file,
+			__thread_write_image_file_end_cb,
+			__thread_write_image_file_cancel_cb,
+			ad);
 	} else {
 		_E("Thread is running NOW");
 	}
@@ -257,42 +312,6 @@ static void __preview_image_buffer_created_cb(void *data)
 FREE_ALL_BUFFER:
 	free(image_buffer->buffer);
 	free(image_buffer);
-}
-
-static void __move_camera(int x, int y, void *user_data)
-{
-	app_data *ad = (app_data *)user_data;
-	ret_if(!ad);
-
-	// x, y Range : -10 ~ 10
-	if (x > 10) x = 10;
-	if (x < -10) x = -10;
-	if (y > 10) y = 10;
-	if (y < -10) y = -10;
-
-	x *= -1; // The camera image is flipped left and right.
-	double calculated_x = ad->current_servo_x + x * SERVO_MOTOR_HORIZONTAL_STEP;
-	double calculated_y = ad->current_servo_y + y * SERVO_MOTOR_VERTICAL_STEP;
-
-	if (calculated_x > SERVO_MOTOR_HORIZONTAL_MAX)
-		calculated_x = SERVO_MOTOR_HORIZONTAL_MAX;
-
-	if (calculated_x < SERVO_MOTOR_HORIZONTAL_MIN)
-		calculated_x = SERVO_MOTOR_HORIZONTAL_MIN;
-
-	if (calculated_y > SERVO_MOTOR_VERTICAL_MAX)
-		calculated_y = SERVO_MOTOR_VERTICAL_MAX;
-
-	if (calculated_y < SERVO_MOTOR_VERTICAL_MIN)
-		calculated_y = SERVO_MOTOR_VERTICAL_MIN;
-
-	ad->current_servo_x = calculated_x;
-	ad->current_servo_y = calculated_y;
-
-	servo_h_state_set(calculated_x, APP_CALLBACK_KEY);
-	servo_v_state_set(calculated_y, APP_CALLBACK_KEY);
-
-	return;
 }
 
 static void __set_result_info(int result[], int result_count, app_data *ad, int image_result_type)
@@ -324,6 +343,7 @@ static void __set_result_info(int result[], int result_count, app_data *ad, int 
 	}
 
 	latest_image_info = strdup(image_info);
+
 	pthread_mutex_lock(&ad->mutex);
 	info = ad->latest_image_info;
 	ad->latest_image_info = latest_image_info;
@@ -331,21 +351,10 @@ static void __set_result_info(int result[], int result_count, app_data *ad, int 
 	free(info);
 }
 
-static void __mv_detection_event_cb(int horizontal, int vertical, int result[], int result_count, void *user_data)
+static void __mv_detection_event_cb(int area_sum, int result[], int result_count, void *user_data)
 {
 	app_data *ad = (app_data *)user_data;
 	long long int now = __get_monotonic_ms();
-
-	ad->motion_state = 1;
-
-	if (now < ad->last_moved_time + CAMERA_MOVE_INTERVAL_MS) {
-		ad->valid_event_count = 0;
-		pthread_mutex_lock(&ad->mutex);
-		ad->latest_image_type = 0; // 0: image during camera repositioning
-		pthread_mutex_unlock(&ad->mutex);
-		__set_result_info(result, result_count, ad, 0);
-		return;
-	}
 
 	if (now < ad->last_valid_event_time + VALID_EVENT_INTERVAL_MS) {
 		ad->valid_event_count++;
@@ -356,114 +365,19 @@ static void __mv_detection_event_cb(int horizontal, int vertical, int result[], 
 	ad->last_valid_event_time = now;
 
 	if (ad->valid_event_count < THRESHOLD_VALID_EVENT_COUNT) {
-		ad->valid_vision_result_x_sum += horizontal;
-		ad->valid_vision_result_y_sum += vertical;
-		pthread_mutex_lock(&ad->mutex);
-		ad->latest_image_type = 1; // 1: single valid image but not completed
-		pthread_mutex_unlock(&ad->mutex);
-		__set_result_info(result, result_count, ad, 1);
+		__set_result_info(result, result_count, ad, 0);
 		return;
 	}
+
+	int ratio = (double) area_sum * 100 / (double) IMAGE_RESOLUTION;
+	_D("area_sum [%d], ratio [%d]", area_sum, ratio);
+
+	char* msg = g_strdup_printf("Motion Detected! %d%% %d zones", ratio, result_count);
+	__send_telegram_message(msg, ad);
+	free(msg);
 
 	ad->valid_event_count = 0;
-	ad->valid_vision_result_x_sum += horizontal;
-	ad->valid_vision_result_y_sum += vertical;
-
-	int x = ad->valid_vision_result_x_sum / THRESHOLD_VALID_EVENT_COUNT;
-	int y = ad->valid_vision_result_y_sum / THRESHOLD_VALID_EVENT_COUNT;
-
-	x = 10 * x / (IMAGE_WIDTH / 2);
-	y = 10 * y / (IMAGE_HEIGHT / 2);
-
-	__move_camera((int) x, (int) y, ad);
-	ad->last_moved_time = now;
-
-	ad->valid_vision_result_x_sum = 0;
-	ad->valid_vision_result_y_sum = 0;
-	pthread_mutex_lock(&ad->mutex);
-	ad->latest_image_type = 2; // 2: fully validated image
-	pthread_mutex_unlock(&ad->mutex);
-
-	__set_result_info(result, result_count, ad, 2);
-}
-
-static void __switch_changed(switch_state_e state, void* user_data)
-{
-	app_data *ad = (app_data *)user_data;
-	_D("switch changed to - %d", state);
-	ret_if(!ad);
-
-	/* Move servo motors to initial position */
-	if (state != SWITCH_STATE_ON)
-		return;
-
-	ad->current_servo_x = SERVO_MOTOR_HORIZONTAL_CENTER;
-	ad->current_servo_y = SERVO_MOTOR_VERTICAL_CENTER;
-
-	servo_h_state_set(ad->current_servo_x, APP_CALLBACK_KEY);
-	servo_v_state_set(ad->current_servo_y, APP_CALLBACK_KEY);
-}
-
-static void __servo_v_changed(double value, void* user_data)
-{
-	app_data *ad = (app_data *)user_data;
-	ret_if(!ad);
-
-	_D("servo_v changed to - %lf", value);
-	ad->current_servo_y = value;
-}
-
-static void __servo_h_changed(double value, void* user_data)
-{
-	app_data *ad = (app_data *)user_data;
-	ret_if(!ad);
-
-	_D("servo_h changed to - %lf", value);
-	ad->current_servo_x = value;
-}
-
-static void __device_interfaces_fini(void)
-{
-	switch_finalize();
-	servo_v_finalize();
-	servo_h_finalize();
-	motion_finalize();
-}
-
-static int __device_interfaces_init(app_data *ad)
-{
-	retv_if(!ad, -1);
-
-	if (switch_initialize()) {
-		_E("failed to switch_initialize()");
-		return -1;
-	}
-
-	if (servo_v_initialize()) {
-		_E("failed to servo_v_initialize()");
-		goto ERROR;
-	}
-
-	if (servo_h_initialize()) {
-		_E("failed to servo_h_initialize()");
-		goto ERROR;
-	}
-
-	if (motion_initialize()) {
-		_E("failed to motion_initialize()");
-		goto ERROR;
-	}
-
-	switch_state_changed_cb_set(APP_CALLBACK_KEY, __switch_changed, ad);
-	servo_v_state_changed_cb_set(APP_CALLBACK_KEY, __servo_v_changed, ad);
-	servo_h_state_changed_cb_set(APP_CALLBACK_KEY, __servo_h_changed, ad);
-	// motion : only set result value, callback is not needed
-
-	return 0;
-
-ERROR :
-	__device_interfaces_fini();
-	return -1;
+	__set_result_info(result, result_count, ad, 1);
 }
 
 static bool service_app_create(void *data)
@@ -486,9 +400,6 @@ static bool service_app_create(void *data)
 
 	pthread_mutex_init(&ad->mutex, NULL);
 
-	if (__device_interfaces_init(ad))
-		goto ERROR;
-
 	if (controller_mv_set_movement_detection_event_cb(__mv_detection_event_cb, data) == -1) {
 		_E("Failed to set movement detection event callback");
 		goto ERROR;
@@ -504,37 +415,14 @@ static bool service_app_create(void *data)
 		goto ERROR;
 	}
 
-#ifdef ENABLE_SMARTTHINGS
-	/* smartthings APIs should be called after camera start preview, they can't wait to start camera */
-	if (st_thing_master_init())
-		goto ERROR;
-
-	if (st_thing_resource_init())
-		goto ERROR;
-#endif /* ENABLE_SMARTTHINGS */
-
-	ad->current_servo_x = SERVO_MOTOR_HORIZONTAL_CENTER;
-	ad->current_servo_y = SERVO_MOTOR_VERTICAL_CENTER;
-
-	servo_h_state_set(ad->current_servo_x, APP_CALLBACK_KEY);
-	servo_v_state_set(ad->current_servo_y, APP_CALLBACK_KEY);
-
 	return true;
 
 ERROR:
-	__device_interfaces_fini();
-
 	resource_camera_close();
 	controller_mv_unset_movement_detection_event_cb();
 	controller_image_finalize();
 
-#ifdef ENABLE_SMARTTHINGS
-	st_thing_master_fini();
-	st_thing_resource_fini();
-#endif /* ENABLE_SMARTTHINGS */
-
 	pthread_mutex_destroy(&ad->mutex);
-
 	return false;
 }
 
@@ -543,6 +431,7 @@ static void service_app_terminate(void *data)
 	app_data *ad = (app_data *)data;
 	Ecore_Thread *thread_id = NULL;
 	unsigned char *buffer = NULL;
+	unsigned char *encoded_image_buffer = NULL;
 	char *info = NULL;
 	gchar *temp_image_filename;
 	gchar *latest_image_filename;
@@ -559,18 +448,21 @@ static void service_app_terminate(void *data)
 	if (thread_id)
 		ecore_thread_wait(thread_id, 3.0); // wait for 3 second
 
-	__device_interfaces_fini();
+	if(ad->telegram_thread)
+		ecore_thread_wait(ad->telegram_thread, 3.0); // wait for 3 second
+
+	ad->telegram_thread = NULL;
+
+	free(ad->telegram_message);
+	free(ad->telegram_image_buffer);
 
 	controller_image_finalize();
-
-#ifdef ENABLE_SMARTTHINGS
-	st_thing_master_fini();
-	st_thing_resource_fini();
-#endif /* ENABLE_SMARTTHINGS */
 
 	pthread_mutex_lock(&ad->mutex);
 	buffer = ad->latest_image_buffer;
 	ad->latest_image_buffer = NULL;
+	encoded_image_buffer = ad->latest_encoded_image_buffer;
+	ad->latest_encoded_image_buffer = NULL;
 	info  = ad->latest_image_info;
 	ad->latest_image_info = NULL;
 	temp_image_filename = ad->temp_image_filename;
@@ -579,6 +471,7 @@ static void service_app_terminate(void *data)
 	ad->latest_image_filename = NULL;
 	pthread_mutex_unlock(&ad->mutex);
 	free(buffer);
+	free(encoded_image_buffer);
 	free(info);
 	g_free(temp_image_filename);
 	g_free(latest_image_filename);

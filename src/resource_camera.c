@@ -237,7 +237,7 @@ static void __capturing_cb(camera_image_data_s *image, camera_image_data_s *post
 	if (camera_data->captured_file == NULL)
 		return;
 
-	_D("Now is on Capturing: Image size[%d x %d]", image->width, image->height);
+	_D("Now is on Capturing: Image size[%d x %d] size[%d]", image->width, image->height, image->size);
 
 	memcpy(camera_data->captured_file, image->data, image->size);
 	camera_data->image_size = image->size;

@@ -55,12 +55,10 @@ void controller_image_finalize(void)
 
 int controller_image_save_image_file(const char *path,
 	unsigned int width, unsigned int height, const unsigned char *buffer,
-	const char *comment, unsigned int comment_len)
+	unsigned char** encoded, unsigned long long* encoded_size, const char *comment, unsigned int comment_len)
 {
-	unsigned char *encoded = NULL;
-	unsigned long long size = 0;
-
 	int error_code = image_util_encode_set_resolution(encode_h, width, height);
+
 	if (error_code != IMAGE_UTIL_ERROR_NONE) {
 		_E("image_util_encode_set_resolution [%s]", get_error_message(error_code));
 		return -1;
@@ -84,22 +82,20 @@ int controller_image_save_image_file(const char *path,
 		return -1;
 	}
 
-	error_code = image_util_encode_set_output_buffer(encode_h, &encoded);
+	error_code = image_util_encode_set_output_buffer(encode_h, encoded);
 	if (error_code != IMAGE_UTIL_ERROR_NONE) {
 		_E("image_util_encode_set_output_buffer [%s]", get_error_message(error_code));
 		return -1;
 	}
 
-	error_code = image_util_encode_run(encode_h, &size);
+	error_code = image_util_encode_run(encode_h, encoded_size);
 	if (error_code != IMAGE_UTIL_ERROR_NONE) {
 		_E("image_util_encode_run [%s]", get_error_message(error_code));
 		return -1;
 	}
 
 	error_code = exif_write_jpg_file_with_comment(path,
-			encoded, (unsigned int)size, width, height, comment, comment_len);
-
-	free(encoded);
+			*encoded, (unsigned int)*encoded_size, width, height, comment, comment_len);
 
 	return error_code;
 }
