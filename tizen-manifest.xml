@@ -8,6 +8,7 @@
         <background-category value="iot-communication"/>
     </service-application>
     <privileges>
+        <privilege>http://tizen.org/privilege/appdir.shareddata</privilege>
         <privilege>http://tizen.org/privilege/internet</privilege>
         <privilege>http://tizen.org/privilege/camera</privilege>
     </privileges>

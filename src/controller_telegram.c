@@ -95,11 +95,12 @@ int controller_telegram_send_message(const char* msg)
 	}
 
 	// 실습 - 텔레그램 문자 보내기
-	// char* url_with_msg = ...
+	char* url_with_msg = NULL;
+	return -1;
 
-	_D("Send TEXT Url: [%s]", url_with_msg);
+	// _D("Send TEXT Url: [%s]", url_with_msg);
 
-	curl_easy_setopt(curl, CURLOPT_URL, url_with_msg);
+	// curl_easy_setopt(curl, CURLOPT_URL, url_with_msg);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, _response_callback);
 	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, REQ_CON_TIMEOUT);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, REQ_TIMEOUT);
@@ -140,12 +141,13 @@ int controller_telegram_send_image(const unsigned char* image_buffer, unsigned i
 	}
 
 	// 실습 - 텔레그램 사진 보내기
-	// char* url_with_msg = ...
+	char* url_with_msg = NULL;
 
-	_D("Send PHOTO Url: [%s]", url_with_msg);
+	// _D("Send PHOTO Url: [%s]", url_with_msg);
 
 	// 실습 - 텔레그램 사진 보내기
 	// curl_formadd(&formp...
+	return -1;
 
 	curl_formadd(&formpost, &lastptr,
 		CURLFORM_COPYNAME, "photo",
@@ -154,7 +156,7 @@ int controller_telegram_send_image(const unsigned char* image_buffer, unsigned i
 		CURLFORM_BUFFERLENGTH, buffer_size,
 		CURLFORM_END);
 
-	curl_easy_setopt(curl, CURLOPT_URL, url_with_msg);
+	// curl_easy_setopt(curl, CURLOPT_URL, url_with_msg);
 	curl_easy_setopt(curl, CURLOPT_HTTPPOST, formpost);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, _response_callback);
 

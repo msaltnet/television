@@ -88,18 +88,18 @@ int controller_image_save_image_file(const char *path,
 		return -1;
 	}
 
-	// 실습 - 이미지 인코딩 수행
+	// 실습 - JPG 이미지 인코딩
 	// error_code = image_util_???;
 	if (error_code != IMAGE_UTIL_ERROR_NONE) {
 		_E("image_util_encode_run [%s]", get_error_message(error_code));
 		return -1;
 	}
 
-	// 실습 - exif 데이터 쓰기, 다른 코멘트 추가 해보기
+	// 실습 - JPG exif 데이터 쓰기, 다른 코멘트 추가 해보기
 	// error_code = exif_write_jpg_file_with_comment(path,
 	// 		*encoded, (unsigned int)*encoded_size, width, height, comment, comment_len);
 
-	// 실습 - 진짜 데이터가 잘 쓰여져 있는지 파일 꺼내서 확인해 보기
+	// 실습 - JPG 진짜 데이터가 잘 쓰여져 있는지 파일 꺼내서 확인해 보기
 
 	return error_code;
 }

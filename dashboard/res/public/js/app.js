@@ -144,6 +144,7 @@ Canvas.prototype.drawPoints = function (pointArray, type) {
     var x, y, w, h;
     var color;
 
+    // 실습 - IoTjs 사각형 색상 바꿔보기
     if (type == 'blur') {
         color = "rgba(115,232,57,0.8)";
     } else {

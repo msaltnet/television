@@ -125,7 +125,7 @@ static mv_colorspace_e __convert_colorspace_from_cam_to_mv(camera_pixel_format_e
 static void __terminate_telegram_thread(void *data)
 {
 	app_data *ad = (app_data *)data;
-	// 실습 텔레그램 Thread Safety
+	// 실습 - 텔레그램 쓰레드 다루기
 	// ad->telegram_th???
 	_D("Telegram Thread Terminated!");
 
@@ -134,7 +134,7 @@ static void __thread_telegram_task(void *data, Ecore_Thread *th)
 {
 	app_data *ad = (app_data *)data;
 	_D("Telegram Thread Start!");
-	// 실습 텔레그램 보내기
+	// 실습 - 텔레그램 쓰레드 작업
 	// controller_telegram_send_mes...;
 	// controller_telegram_send_ima...;
 }
@@ -142,7 +142,6 @@ static void __thread_telegram_task(void *data, Ecore_Thread *th)
 static void __thread_telegram_task_end_cb(void *data, Ecore_Thread *th)
 {
 	_D("Telegram Thread End!");
-	// 실습 텔레그램 Thread Safety 2
 	ecore_main_loop_thread_safe_call_async(__terminate_telegram_thread, (app_data *)data);
 }
 
@@ -207,8 +206,8 @@ static void __thread_write_image_file(void *data, Ecore_Thread *th)
 	}
 	pthread_mutex_unlock(&ad->mutex);
 
-	// 실습 - 이미지 인코딩
-	// ret = controller_image_save_....;
+	ret = controller_image_save_image_file(ad->temp_image_filename, width, height, buffer,
+		&encoded_buffer, &encoded_size, image_info, strlen(image_info));
 
 	if (ret) {
 		_E("failed to save image file");
@@ -219,10 +218,12 @@ static void __thread_write_image_file(void *data, Ecore_Thread *th)
 	}
 
 	pthread_mutex_lock(&ad->mutex);
-	// 실습 - 이미지 버퍼 백업
-	// free(....
+	unsigned char *temp = ad->latest_encoded_image_buffer;
+	ad->latest_encoded_image_buffer = encoded_buffer;
+	ad->latest_encoded_image_buffer_size = encoded_size;
 	pthread_mutex_unlock(&ad->mutex);
 
+	free(temp);
 	free(image_info);
 	free(buffer);
 }
@@ -277,7 +278,7 @@ static void __preview_image_buffer_created_cb(void *data)
 	ret_if(!image_buffer);
 	ret_if(!ad);
 
-	// 실습 - Preview 시간 측정
+	// 실습 - 카메라 Preview 시간 측정
 	// static long long int last = 0;
 	// long long int now = __get_mon...;
 	// _D("Preview Interval [%lld]ms"...
@@ -301,13 +302,13 @@ static void __preview_image_buffer_created_cb(void *data)
 	pthread_mutex_unlock(&ad->mutex);
 	free(info);
 
-	// 실습 - 소스 주입
+	// 실습 - MV 소스 주입
 	// if (sou...
 	// 	controller_m...
 
 	free(image_buffer);
 
-	// 실습 - 이미지 인코딩 쓰레드
+	// 실습 - JPG 인코딩 쓰레드 생성
 	// pthread_mutex_lock(&ad->mutex);
 	// if (!ad->image_writter_thread) {
 	// 	ad->image_writter_thread = ecore_thre???(__thread_????,
@@ -369,8 +370,7 @@ static void __mv_detection_event_cb(int area_sum, int result[], int result_count
 	long long int now = __get_monotonic_ms();
 
 	// 실습 - MV 언제 호출되는지 확인
-	// _D("HIT [%lld]", now);
-	return;
+	_D("HIT ==================================== [%lld]", now);
 
 	// 실습 - MV 튜닝해보기
 	// if (now < ad->last_valid_event_time + VALID_EVENT_INTERVAL_MS) {
@@ -385,7 +385,7 @@ static void __mv_detection_event_cb(int area_sum, int result[], int result_count
 	// 	__set_result_info(result, result_count, ad, 0);
 	// 	return;
 	// }
-	// _D("HIT [%lld]", now);
+	// _D("HIT ##################################### [%lld]", now);
 	return;
 
 	int ratio = (double) area_sum * 100 / (double) IMAGE_RESOLUTION;
@@ -430,8 +430,8 @@ static bool service_app_create(void *data)
 		goto ERROR;
 	}
 
-	// 실습 - 프리뷰 시작하기
-	// if (resource_camera_start_preview() == -1) {
+	// 실습 카메라 프리뷰 시작하기
+	// if (resource_... == -1) {
 	// 	_E("Failed to start camera preview");
 	// 	goto ERROR;
 	// }
