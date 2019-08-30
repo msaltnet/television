@@ -94,12 +94,8 @@ int controller_telegram_send_message(const char* msg)
 		return -1;
 	}
 
-	char* url_with_msg = g_strdup_printf("%s%s%s%s&chat_id=%s",
-		TELEGRAM_API_HOST_URL,
-		TELEGRAM_BOT_INFO,
-		TELEGRAM_BOT_SEND_MSG_URL,
-		msg,
-		TELEGRAM_CHATROOM_INFO);
+	// 실습 - 텔레그램 문자 보내기
+	// char* url_with_msg = ...
 
 	_D("Send TEXT Url: [%s]", url_with_msg);
 
@@ -143,18 +139,13 @@ int controller_telegram_send_image(const unsigned char* image_buffer, unsigned i
 		return -1;
 	}
 
-	char* url_with_msg = g_strdup_printf("%s%s%s?chat_id=%s",
-		TELEGRAM_API_HOST_URL,
-		TELEGRAM_BOT_INFO,
-		TELEGRAM_BOT_SEND_PHOTO_URL,
-		TELEGRAM_CHATROOM_INFO);
+	// 실습 - 텔레그램 사진 보내기
+	// char* url_with_msg = ...
 
 	_D("Send PHOTO Url: [%s]", url_with_msg);
 
-	curl_formadd(&formpost, &lastptr,
-		CURLFORM_COPYNAME, "content-type:",
-		CURLFORM_COPYCONTENTS, "multipart/form-data",
-		CURLFORM_END);
+	// 실습 - 텔레그램 사진 보내기
+	// curl_formadd(&formp...
 
 	curl_formadd(&formpost, &lastptr,
 		CURLFORM_COPYNAME, "photo",

@@ -41,9 +41,10 @@ http.createServer(function(req, res) {
     if (path[0] === undefined) {
       res.writeHead(200);
       res.end(fs.readFileSync(SERVER_ROOT_FOLDER_PATH + 'public/index.html'));
-    } else if (path[0] == 'test') {
-      res.writeHead(200);
-      res.end(fs.readFileSync(SERVER_ROOT_FOLDER_PATH + 'public/test.html'));
+    // 실습 - IoT Web Server Test Page 만들어 보기
+    // } else if (path[0] == 'test') {
+    //   res.writeHead(200);
+    //   res.end(fs.readFileSync(SERVER_ROOT_FOLDER_PATH + 'public/test.html'));
     } else if (req.url == '/js/app.js') {
       res.writeHead(200);
       res.end(fs.readFileSync(SERVER_ROOT_FOLDER_PATH + 'public/js/app.js'));
@@ -67,9 +68,10 @@ if (ENABLE_WEBSOCKET) {
 
   var websocket = require('websocket');
 
-  var options = {
-    port: 8888
-  }
+  // 실습 - IoT Web Server Port 바꿔보기
+  // var options = {
+  //   port: 8888
+  // }
 
   var server = new websocket.Server(options, Listener);
 

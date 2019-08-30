@@ -65,5 +65,6 @@ int main(int argc, char* argv[])
 	service_app_add_event_handler(&handlers[APP_EVENT_LANGUAGE_CHANGED], APP_EVENT_LANGUAGE_CHANGED, service_app_lang_changed, &ad);
 	service_app_add_event_handler(&handlers[APP_EVENT_REGION_FORMAT_CHANGED], APP_EVENT_REGION_FORMAT_CHANGED, service_app_region_changed, &ad);
 
-	return iotjs_service_app_start(argc, argv, "server.js", &event_callback, ad);
+	// 실습 - IoT Application Start
+	// return iotjs_....
 }

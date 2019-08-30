@@ -107,6 +107,7 @@ static void __movement_detected_event_cb(mv_surveillance_event_trigger_h trigger
 	retm_if(ret, "failed to mv_surveillance_get_result_value for %s - [%s]", MV_SURVEILLANCE_MOVEMENT_REGIONS, __mv_err_to_str(ret));
 
 	for (i = 0; i < move_regions_num; i++) {
+		// 실습 - 검출 결과 확인
 		// _D("region[%u] - position[%d x %d], witdh[%d], height[%d]", i, regions[i].point.x, regions[i].point.y, regions[i].width, regions[i].height);
 		// _D("region[%u] - area[%d]", i, regions[i].width * regions[i].height);
 

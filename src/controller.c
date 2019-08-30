@@ -125,7 +125,8 @@ static mv_colorspace_e __convert_colorspace_from_cam_to_mv(camera_pixel_format_e
 static void __terminate_telegram_thread(void *data)
 {
 	app_data *ad = (app_data *)data;
-	ad->telegram_thread = NULL;
+	// 실습 텔레그램 Thread Safety
+	// ad->telegram_th???
 	_D("Telegram Thread Terminated!");
 
 }
@@ -133,13 +134,15 @@ static void __thread_telegram_task(void *data, Ecore_Thread *th)
 {
 	app_data *ad = (app_data *)data;
 	_D("Telegram Thread Start!");
-	controller_telegram_send_message(ad->telegram_message);
-	controller_telegram_send_image(ad->telegram_image_buffer, ad->telegram_image_buffer_size);
+	// 실습 텔레그램 보내기
+	// controller_telegram_send_mes...;
+	// controller_telegram_send_ima...;
 }
 
 static void __thread_telegram_task_end_cb(void *data, Ecore_Thread *th)
 {
 	_D("Telegram Thread End!");
+	// 실습 텔레그램 Thread Safety 2
 	ecore_main_loop_thread_safe_call_async(__terminate_telegram_thread, (app_data *)data);
 }
 
@@ -204,8 +207,9 @@ static void __thread_write_image_file(void *data, Ecore_Thread *th)
 	}
 	pthread_mutex_unlock(&ad->mutex);
 
-	ret = controller_image_save_image_file(ad->temp_image_filename, width, height, buffer,
-		&encoded_buffer, &encoded_size, image_info, strlen(image_info));
+	// 실습 - 이미지 인코딩
+	// ret = controller_image_save_....;
+
 	if (ret) {
 		_E("failed to save image file");
 	} else {
@@ -215,9 +219,8 @@ static void __thread_write_image_file(void *data, Ecore_Thread *th)
 	}
 
 	pthread_mutex_lock(&ad->mutex);
-	free(ad->latest_encoded_image_buffer);
-	ad->latest_encoded_image_buffer = encoded_buffer;
-	ad->latest_encoded_image_buffer_size = encoded_size;
+	// 실습 - 이미지 버퍼 백업
+	// free(....
 	pthread_mutex_unlock(&ad->mutex);
 
 	free(image_info);
@@ -274,6 +277,13 @@ static void __preview_image_buffer_created_cb(void *data)
 	ret_if(!image_buffer);
 	ret_if(!ad);
 
+	// 실습 - Preview 시간 측정
+	// static long long int last = 0;
+	// long long int now = __get_mon...;
+	// _D("Preview Interval [%lld]ms"...
+	// last = now;
+	return;
+
 	image_colorspace = __convert_colorspace_from_cam_to_mv(image_buffer->format);
 	goto_if(image_colorspace == MEDIA_VISION_COLORSPACE_INVALID, FREE_ALL_BUFFER);
 
@@ -291,21 +301,23 @@ static void __preview_image_buffer_created_cb(void *data)
 	pthread_mutex_unlock(&ad->mutex);
 	free(info);
 
-	if (source)
-		controller_mv_push_source(source);
+	// 실습 - 소스 주입
+	// if (sou...
+	// 	controller_m...
 
 	free(image_buffer);
 
-	pthread_mutex_lock(&ad->mutex);
-	if (!ad->image_writter_thread) {
-		ad->image_writter_thread = ecore_thread_run(__thread_write_image_file,
-			__thread_write_image_file_end_cb,
-			__thread_write_image_file_cancel_cb,
-			ad);
-	} else {
-		_E("Thread is running NOW");
-	}
-	pthread_mutex_unlock(&ad->mutex);
+	// 실습 - 이미지 인코딩 쓰레드
+	// pthread_mutex_lock(&ad->mutex);
+	// if (!ad->image_writter_thread) {
+	// 	ad->image_writter_thread = ecore_thre???(__thread_????,
+	// 		__thread_write_image_file_end_cb,
+	// 		__thread_write_image_file_cancel_cb,
+	// 		ad);
+	// } else {
+	// 	_E("Thread is running NOW");
+	// }
+	// pthread_mutex_unlock(&ad->mutex);
 
 	return;
 
@@ -356,24 +368,32 @@ static void __mv_detection_event_cb(int area_sum, int result[], int result_count
 	app_data *ad = (app_data *)user_data;
 	long long int now = __get_monotonic_ms();
 
-	if (now < ad->last_valid_event_time + VALID_EVENT_INTERVAL_MS) {
-		ad->valid_event_count++;
-	} else {
-		ad->valid_event_count = 1;
-	}
+	// 실습 - MV 언제 호출되는지 확인
+	// _D("HIT [%lld]", now);
+	return;
 
-	ad->last_valid_event_time = now;
+	// 실습 - MV 튜닝해보기
+	// if (now < ad->last_valid_event_time + VALID_EVENT_INTERVAL_MS) {
+	// 	ad->valid_event_count++;
+	// } else {
+	// 	ad->valid_event_count = 1;
+	// }
 
-	if (ad->valid_event_count < THRESHOLD_VALID_EVENT_COUNT) {
-		__set_result_info(result, result_count, ad, 0);
-		return;
-	}
+	// ad->last_valid_event_time = now;
+
+	// if (ad->valid_event_count < THRESHOLD_VALID_EVENT_COUNT) {
+	// 	__set_result_info(result, result_count, ad, 0);
+	// 	return;
+	// }
+	// _D("HIT [%lld]", now);
+	return;
 
 	int ratio = (double) area_sum * 100 / (double) IMAGE_RESOLUTION;
 	_D("area_sum [%d], ratio [%d]", area_sum, ratio);
 
 	char* msg = g_strdup_printf("Motion Detected! %d%% %d zones", ratio, result_count);
-	__send_telegram_message(msg, ad);
+	// 실습 - 텔레그램 메시지 보내기
+	// __send_...
 	free(msg);
 
 	ad->valid_event_count = 0;
@@ -410,10 +430,11 @@ static bool service_app_create(void *data)
 		goto ERROR;
 	}
 
-	if (resource_camera_start_preview() == -1) {
-		_E("Failed to start camera preview");
-		goto ERROR;
-	}
+	// 실습 - 프리뷰 시작하기
+	// if (resource_camera_start_preview() == -1) {
+	// 	_E("Failed to start camera preview");
+	// 	goto ERROR;
+	// }
 
 	return true;
 

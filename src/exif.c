@@ -290,8 +290,8 @@ int exif_write_jpg_file_with_comment(const char *output_file,
 		return save_jpeg_file(output_file, jpg_data, jpg_size);
 	}
 
-	ret = create_exif_data(jpg_data, jpg_size, jpg_width, jpg_height,
-			comment, comment_len, &exif_data, &exif_size);
+	// 실습 - exif 데이터 생성
+	// ret = create_exif_...
 	if (ret) {
 		_E("failed to create_exif_data(), save jpg data only");
 		return save_jpeg_file(output_file, jpg_data, jpg_size);
