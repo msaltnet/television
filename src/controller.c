@@ -215,11 +215,12 @@ static void __thread_write_image_file(void *data, Ecore_Thread *th)
 	}
 
 	pthread_mutex_lock(&ad->mutex);
-	free(ad->latest_encoded_image_buffer);
+	unsigned char *temp = ad->latest_encoded_image_buffer;
 	ad->latest_encoded_image_buffer = encoded_buffer;
 	ad->latest_encoded_image_buffer_size = encoded_size;
 	pthread_mutex_unlock(&ad->mutex);
 
+	free(temp);
 	free(image_info);
 	free(buffer);
 }
