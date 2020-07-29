@@ -21,13 +21,13 @@
 #define REQ_CON_TIMEOUT 5L
 #define REQ_TIMEOUT 7L
 
-//https://api.telegram.org/{YOUR_BOT_ID}:{YOUR_BOT_TOKEN}/sendMessage?text={TEXT_MSG}&chat_id={CHATROOM_ID}
-//https://api.telegram.org/{YOUR_BOT_ID}:{YOUR_BOT_TOKEN}/sendPhoto?chat_id={CHATROOM_ID}
+//https://api.telegram.org/bot{YOUR_BOT_TOKEN}/sendMessage?text={TEXT_MSG}&chat_id={CHATROOM_ID}
+//https://api.telegram.org/bot{YOUR_BOT_TOKEN}/sendPhoto?chat_id={CHATROOM_ID}
 
-#define TELEGRAM_BOT_INFO "{YOUR_BOT_ID}:{YOUR_BOT_TOKEN}"
+#define TELEGRAM_BOT_INFO "{YOUR_BOT_TOKEN}"
 #define TELEGRAM_CHATROOM_INFO "{CHATROOM_ID}"
 
-#define TELEGRAM_API_HOST_URL "https://api.telegram.org/"
+#define TELEGRAM_API_HOST_URL "https://api.telegram.org/bot"
 #define TELEGRAM_BOT_SEND_MSG_URL "/sendMessage?text=[Tizen] "
 #define TELEGRAM_BOT_SEND_PHOTO_URL "/sendPhoto"
 

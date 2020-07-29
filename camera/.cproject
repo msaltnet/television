@@ -129,13 +129,17 @@
 									<listOptionValue builtIn="false" value=" -fPIE"/>
 									<listOptionValue builtIn="false" value="--sysroot=&quot;${SBI_SYSROOT}&quot;"/>
 									<listOptionValue builtIn="false" value="-mthumb"/>
+									<listOptionValue builtIn="false" value="--param=ssp-buffer-size=4"/>
+									<listOptionValue builtIn="false" value="-mlittle-endian"/>
+									<listOptionValue builtIn="false" value="-mfloat-abi=softfp"/>
+									<listOptionValue builtIn="false" value="-Wl,--hash-style=gnu"/>
+									<listOptionValue builtIn="false" value="-Wp,-D__SOFTFP"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.include.paths.2112377807" name="Include paths (-I)" superClass="gnu.cpp.compiler.option.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/inc}&quot;"/>
 								</option>
 								<option id="sbi.gnu.cpp.compiler.option.frameworks.core.1759555549" name="Tizen-Frameworks" superClass="sbi.gnu.cpp.compiler.option.frameworks.core" valueType="userObjs">
 									<listOptionValue builtIn="false" value="Native_API"/>
-									<listOptionValue builtIn="false" value="iot-things"/>
 								</option>
 								<option id="sbi.gnu.cpp.compiler.option.preprocessor.def.deprecation.4937662" name="Defined symbols (-D)" superClass="sbi.gnu.cpp.compiler.option.preprocessor.def.deprecation" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="TIZEN_DEPRECATION"/>
@@ -251,13 +255,17 @@
 									<listOptionValue builtIn="false" value=" -fPIE"/>
 									<listOptionValue builtIn="false" value="--sysroot=&quot;${SBI_SYSROOT}&quot;"/>
 									<listOptionValue builtIn="false" value="-mthumb"/>
+									<listOptionValue builtIn="false" value="--param=ssp-buffer-size=4"/>
+									<listOptionValue builtIn="false" value="-mlittle-endian"/>
+									<listOptionValue builtIn="false" value="-mfloat-abi=softfp"/>
+									<listOptionValue builtIn="false" value="-Wl,--hash-style=gnu"/>
+									<listOptionValue builtIn="false" value="-Wp,-D__SOFTFP"/>
 								</option>
 								<option id="gnu.c.compiler.option.include.paths.1948841885" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/inc}&quot;"/>
 								</option>
 								<option id="sbi.gnu.c.compiler.option.frameworks.core.1237823507" name="Tizen-Frameworks" superClass="sbi.gnu.c.compiler.option.frameworks.core" valueType="userObjs">
 									<listOptionValue builtIn="false" value="Native_API"/>
-									<listOptionValue builtIn="false" value="iot-things"/>
 								</option>
 								<option id="sbi.gnu.c.compiler.option.preprocessor.def.symbols.deprecation.2088333454" name="Defined symbols (-D)" superClass="sbi.gnu.c.compiler.option.preprocessor.def.symbols.deprecation" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="TIZEN_DEPRECATION"/>
@@ -280,8 +288,8 @@
 									<listOptionValue builtIn="false" value="-L&quot;${SBI_SYSROOT}/usr/lib&quot;"/>
 									<listOptionValue builtIn="false" value="$(RS_LIBRARIES)"/>
 								</option>
-								<option id="gnu.cpp.link.option.paths.436519008" name="Library search path (-L)" superClass="gnu.cpp.link.option.paths" valueType="libPaths"/>
-								<option id="gnu.cpp.link.option.libs.1227337692" name="Libraries (-l)" superClass="gnu.cpp.link.option.libs" valueType="libs"/>
+								<option id="gnu.cpp.link.option.paths.436519008" name="Library search path (-L)" superClass="gnu.cpp.link.option.paths"/>
+								<option id="gnu.cpp.link.option.libs.1227337692" name="Libraries (-l)" superClass="gnu.cpp.link.option.libs"/>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.linker.input.300772284" superClass="cdt.managedbuild.tool.gnu.cpp.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
@@ -436,6 +444,11 @@
 									<listOptionValue builtIn="false" value=" -fPIE"/>
 									<listOptionValue builtIn="false" value="--sysroot=&quot;${SBI_SYSROOT}&quot;"/>
 									<listOptionValue builtIn="false" value="-mthumb"/>
+									<listOptionValue builtIn="false" value="--param=ssp-buffer-size=4"/>
+									<listOptionValue builtIn="false" value="-mlittle-endian"/>
+									<listOptionValue builtIn="false" value="-mfloat-abi=softfp"/>
+									<listOptionValue builtIn="false" value="-Wl,--hash-style=gnu"/>
+									<listOptionValue builtIn="false" value="-Wp,-D__SOFTFP"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.include.paths.2027014757" name="Include paths (-I)" superClass="gnu.cpp.compiler.option.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/inc}&quot;"/>
@@ -553,6 +566,11 @@
 									<listOptionValue builtIn="false" value=" -fPIE"/>
 									<listOptionValue builtIn="false" value="--sysroot=&quot;${SBI_SYSROOT}&quot;"/>
 									<listOptionValue builtIn="false" value="-mthumb"/>
+									<listOptionValue builtIn="false" value="--param=ssp-buffer-size=4"/>
+									<listOptionValue builtIn="false" value="-mlittle-endian"/>
+									<listOptionValue builtIn="false" value="-mfloat-abi=softfp"/>
+									<listOptionValue builtIn="false" value="-Wl,--hash-style=gnu"/>
+									<listOptionValue builtIn="false" value="-Wp,-D__SOFTFP"/>
 								</option>
 								<option id="gnu.c.compiler.option.include.paths.1871901682" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/inc}&quot;"/>
